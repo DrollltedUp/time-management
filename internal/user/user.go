@@ -1,6 +1,7 @@
-package auth
+package user
 
 import (
+	"context"
 	"errors"
 	"time"
 )
@@ -21,3 +22,8 @@ var (
 	ErrInvalidInput       = errors.New("error: email or password is invalid format")
 	ErrInvalidCredentials = errors.New("invalid email or password")
 )
+
+type Store interface {
+	Create(ctx context.Context, u User) (User, error)
+	GetByID(ctx context.Context, email string) (User, error)
+}

@@ -1,4 +1,4 @@
-package auth
+package user
 
 import (
 	"context"
@@ -7,19 +7,19 @@ import (
 	"time"
 )
 
-type MemotyStore struct {
+type MemoryStore struct {
 	ctx    *sync.RWMutex
 	data   map[string]User
 	nextID int
 }
 
-func NewMemoryStore() *MemotyStore {
-	return &MemotyStore{
+func NewMemoryStore() *MemoryStore {
+	return &MemoryStore{
 		data: make(map[string]User),
 	}
 }
 
-func (m *MemotyStore) Create(_ context.Context, u User) (User, error) {
+func (m *MemoryStore) Create(_ context.Context, u User) (User, error) {
 	m.ctx.Lock()
 	defer m.ctx.Unlock()
 
@@ -36,4 +36,15 @@ func (m *MemotyStore) Create(_ context.Context, u User) (User, error) {
 
 	m.data[key] = u
 	return u, nil
+}
+
+func (m *MemoryStore) GetByMail(_ context.Context, email string) (User, error) {
+	m.ctx.RLock()
+	defer m.ctx.RUnlock()
+
+	user, ok := m.data[email]
+	if !ok {
+		return User{}, ErrNotFound
+	}
+	return user, nil
 }

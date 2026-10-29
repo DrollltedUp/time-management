@@ -25,5 +25,5 @@ var (
 
 type Store interface {
 	Create(ctx context.Context, u User) (User, error)
-	GetByID(ctx context.Context, email string) (User, error)
+	GetByMail(ctx context.Context, email string) (User, error)
 }

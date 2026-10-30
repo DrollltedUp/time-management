@@ -6,12 +6,17 @@ import (
 	"time"
 )
 
+const (
+	RoleEmployee = "employee"
+	RoleManager  = "manager"
+)
+
 type User struct {
 	ID            int64
 	Email         string
 	Password_hash string
 	Fullname      string
-	role          string
+	Role          string
 	Active        bool
 	Created_at    time.Time
 }

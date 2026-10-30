@@ -2,11 +2,8 @@ package main
 
 import (
 	"context"
-	"errors"
 	"log/slog"
-	"net/http"
 	"os"
-	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -33,18 +30,18 @@ func main() {
 	}
 	defer pool.Close()
 
-	srv := &http.Server{
-		Addr:              ":9099",
-		Handler:           NewServerHTTP().router(pool, log),
-		ReadHeaderTimeout: 5 * time.Second,
-		ReadTimeout:       10 * time.Second,
-		WriteTimeout:      10 * time.Second,
-	}
+	// srv := &http.Server{
+	// 	Addr:              ":9099",
+	// 	Handler:           NewServerHTTP().router(),
+	// 	ReadHeaderTimeout: 5 * time.Second,
+	// 	ReadTimeout:       10 * time.Second,
+	// 	WriteTimeout:      10 * time.Second,
+	// }
 
-	log.Info("server started", "addr", srv.Addr)
-	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		log.Error("server failder", "err", err)
-		os.Exit(1)
-	}
+	// log.Info("server started", "addr", srv.Addr)
+	// if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+	// 	log.Error("server failder", "err", err)
+	// 	os.Exit(1)
+	// }
 
 }

@@ -2,13 +2,17 @@ package auth
 
 import (
 	"errors"
+	"fmt"
 	"strconv"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
 )
 
-var ErrInvalidToken = errors.New("error: invalid token")
+var (
+	ErrInvalidToken = errors.New("invalid token")
+	ErrExpiredToken = errors.New("token expired")
+)
 
 type TokenManager struct {
 	secret []byte
@@ -16,6 +20,12 @@ type TokenManager struct {
 }
 
 func NewTokenManager(secret []byte, ttl time.Duration) *TokenManager {
+	if len(secret) == 0 {
+		panic("auth: secret must not be empty")
+	}
+	if ttl <= 0 {
+		panic("auth: ttl must be positive")
+	}
 	return &TokenManager{
 		secret: secret,
 		ttl:    ttl,
@@ -23,11 +33,18 @@ func NewTokenManager(secret []byte, ttl time.Duration) *TokenManager {
 }
 
 type Claims struct {
-	Role string `json:"role"`
+	Role Role `json:"role"`
 	jwt.RegisteredClaims
 }
 
-func (m *TokenManager) Issue(userID int, role string) (string, error) {
+func (m *TokenManager) Issue(userID int, role Role) (string, error) {
+	if userID <= 0 {
+		return "", fmt.Errorf("auth: invalid user id %d", userID)
+	}
+	if !role.Valid() {
+		return "", fmt.Errorf("auth: invalid role %q", role)
+	}
+
 	now := time.Now()
 	claims := Claims{
 		Role: role,
@@ -40,18 +57,32 @@ func (m *TokenManager) Issue(userID int, role string) (string, error) {
 	return jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(m.secret)
 }
 
-func (m *TokenManager) Parse(tokenString string) (userID int, role string, err error) {
+func (m *TokenManager) Parse(tokenString string) (*Claims, error) {
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (any, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
+		}
 		return m.secret, nil
-	}, jwt.WithValidMethods([]string{"HS256"}))
-	if err != nil || !token.Valid {
-		return 0, "", ErrInvalidToken
+	},
+		jwt.WithValidMethods([]string{"HS256"}),
+		jwt.WithExpirationRequired(),
+	)
+	if err != nil {
+		if errors.Is(err, jwt.ErrTokenExpired) {
+			return &Claims{}, ErrExpiredToken
+		}
+		return &Claims{}, ErrInvalidToken
 	}
-	userID, err = strconv.Atoi(claims.Subject)
-	if err != nil || (claims.Role != "employee" && claims.Role != "manager") {
-		return 0, "", ErrInvalidToken
+	_ = token
+
+	userID, err := strconv.Atoi(claims.Subject)
+	if err != nil || userID <= 0 {
+		return &Claims{}, ErrInvalidToken
+	}
+	if !claims.Role.Valid() {
+		return &Claims{}, ErrInvalidToken
 	}
 
-	return userID, claims.Role, nil
+	return claims, nil
 }

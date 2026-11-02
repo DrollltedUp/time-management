@@ -6,6 +6,9 @@ import (
 	"time"
 )
 
+type ctxKeyUserID struct{}
+type ctxKeyRole struct{}
+
 type registerResponse struct {
 	ID       int64  `json:"id"`
 	Email    string `json:"email"`

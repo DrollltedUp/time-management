@@ -1,10 +1,13 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/drollltedUp/time-managment/internal/auth"
 	"github.com/drollltedUp/time-managment/internal/user"
@@ -29,6 +32,11 @@ func (s *ServerHTTP) router() http.Handler {
 	router := mux.NewRouter()
 	router.Path("/register").Methods("POST").HandlerFunc(s.Register)
 	router.Path("/login").Methods("POST").HandlerFunc(s.Login)
+
+	protected := router.PathPrefix("/").Subrouter()
+	protected.Use(s.authMiddleware)
+	protected.Path("/me").Methods("GET").HandlerFunc(s.Me)
+
 	return router
 }
 
@@ -81,7 +89,7 @@ func (s *ServerHTTP) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := s.tokens.Issue(int(u.ID), u.Role)
+	token, err := s.tokens.Issue(int(u.ID), auth.Role(u.Role))
 	if err != nil {
 		s.slog.Error("issue token failed ", "err", err)
 		errorJSON(w, http.StatusInternalServerError, "internal server")
@@ -89,5 +97,51 @@ func (s *ServerHTTP) Login(w http.ResponseWriter, r *http.Request) {
 	}
 	writeJSON(w, http.StatusOK, loginResponse{
 		Token: token,
+	})
+}
+
+func (s *ServerHTTP) Me(w http.ResponseWriter, r *http.Request) {
+	userId, ok := r.Context().Value(ctxKeyUserID{}).(int)
+	if !ok {
+		errorJSON(w, http.StatusUnauthorized, "invalid token")
+		return
+	}
+
+	role, _ := r.Context().Value(ctxKeyRole{}).(string)
+	writeJSON(w, http.StatusOK, map[string]any{
+		"user_id": userId,
+		"role":    role,
+	})
+}
+
+func (s *ServerHTTP) authMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		header := r.Header.Get("Authorization")
+		const prefix = "Bearer "
+		token, ok := strings.CutPrefix(header, prefix)
+		if !ok || token == "" {
+			errorJSON(w, http.StatusUnauthorized, "invalid token")
+			return
+		}
+
+		claims, err := s.tokens.Parse(token)
+		if errors.Is(err, auth.ErrExpiredToken) {
+			errorJSON(w, http.StatusUnauthorized, "token expired")
+			return
+		}
+		if err != nil {
+			errorJSON(w, http.StatusUnauthorized, "invalid token")
+			return
+		}
+
+		userID, err := strconv.Atoi(claims.Subject)
+		if err != nil {
+			errorJSON(w, http.StatusUnauthorized, "invalid token")
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), ctxKeyUserID{}, userID)
+		ctx = context.WithValue(ctx, ctxKeyRole{}, string(claims.Role))
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

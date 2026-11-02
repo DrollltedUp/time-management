@@ -8,7 +8,7 @@ import (
 )
 
 type MemoryStore struct {
-	ctx    *sync.RWMutex
+	ctx    sync.RWMutex
 	data   map[string]User
 	nextID int
 }
@@ -42,7 +42,7 @@ func (m *MemoryStore) GetByMail(_ context.Context, email string) (User, error) {
 	m.ctx.RLock()
 	defer m.ctx.RUnlock()
 
-	user, ok := m.data[email]
+	user, ok := m.data[strings.ToLower(email)]
 	if !ok {
 		return User{}, ErrNotFound
 	}

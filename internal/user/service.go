@@ -44,7 +44,7 @@ func (s *Service) Register(ctx context.Context, email, password, fullname string
 
 	created, err := s.store.Create(ctx, user)
 	if err != nil {
-		return User{}, ErrEmailTaken
+		return User{}, err
 	}
 
 	return created, nil

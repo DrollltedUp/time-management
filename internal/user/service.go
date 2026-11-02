@@ -26,7 +26,7 @@ func (s *Service) Register(ctx context.Context, email, password, fullname string
 	normalFullName := normalizeName(fullname)
 
 	if !isValidEmail(normalizeEmail) || !isValidPassword(password) || !validName(normalFullName) {
-		return User{}, ErrInvalidCredentials
+		return User{}, ErrInvalidInput
 	}
 
 	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
@@ -56,7 +56,7 @@ func (s *Service) Login(ctx context.Context, email, password string) (User, erro
 	usermail, err := s.store.GetByMail(ctx, normalizadeEmail)
 	if err != nil {
 		if errors.Is(err, ErrNotFound) {
-			return User{}, ErrInvalidInput
+			return User{}, ErrInvalidCredentials
 		}
 		return User{}, err
 	}

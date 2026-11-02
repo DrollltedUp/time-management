@@ -24,12 +24,12 @@ func NewUserStore(pool *pgxpool.Pool) *UserStore {
 }
 
 func (u *UserStore) Create(ctx context.Context, usr user.User) (user.User, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), queryTimeout)
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
-	err := u.pool.QueryRow(ctx, `INSERT INTO users (email, password_hasg, full_name, role, active, created_at)
+	err := u.pool.QueryRow(ctx, `INSERT INTO users (email, password_hash, full_name, role, active, created_at)
 	VALUES ($1, $2, $3, $4, $5, now()) RETURNING id, created_at
-	`, usr.ID, usr.Password_hash, usr.Fullname, usr.Role, usr.Active).Scan(&usr.ID, &usr.Created_at)
+	`, usr.Email, usr.Password_hash, usr.Fullname, usr.Role, usr.Active).Scan(&usr.ID, &usr.Created_at)
 
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -38,14 +38,15 @@ func (u *UserStore) Create(ctx context.Context, usr user.User) (user.User, error
 		}
 		return user.User{}, err
 	}
-	return usr, nil
+	return usr, err
+
 }
 
 func (u *UserStore) GetByMail(ctx context.Context, email string) (user.User, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), queryTimeout)
+	ctx, cancel := context.WithTimeout(ctx, queryTimeout)
 	defer cancel()
 
-	query := `SELECT id, email, password_hasg, fullname, role, active, created_at FROM users WHERE email = $1`
+	query := `SELECT id, email, password_hash, full_name, role, active, created_at FROM users WHERE email = $1`
 	var usr user.User
 
 	err := u.pool.QueryRow(ctx, query, strings.ToLower(email)).Scan(&usr.ID, &usr.Email, &usr.Password_hash, &usr.Fullname, &usr.Role, &usr.Active, &usr.Created_at)
@@ -53,5 +54,5 @@ func (u *UserStore) GetByMail(ctx context.Context, email string) (user.User, err
 		return user.User{}, user.ErrNotFound
 	}
 
-	return usr, nil
+	return usr, err
 }

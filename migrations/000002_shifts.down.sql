@@ -1,0 +1,3 @@
+DROP TABLE IF EXISTS shifts;
+DROP TABLE IF EXISTS user_stores;
+DROP TABLE IF EXISTS stores;

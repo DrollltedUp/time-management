@@ -8,6 +8,9 @@ import (
 	"os"
 	"time"
 
+	"github.com/drollltedUp/time-managment/internal/auth"
+	"github.com/drollltedUp/time-managment/internal/postgres"
+	"github.com/drollltedUp/time-managment/internal/user"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -33,16 +36,20 @@ func main() {
 	}
 	defer pool.Close()
 
-	srv := &http.Server{
+	srv := user.NewService(postgres.NewUserStore(pool))
+	tokens := auth.NewTokenManager([]byte(secret), time.Hour)
+	handler := NewServerHTTP(srv, tokens, log).router()
+
+	server := &http.Server{
 		Addr:              ":9099",
-		Handler:           NewServerHTTP().router(pool, log),
+		Handler:           handler,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      10 * time.Second,
 	}
 
-	log.Info("server started", "addr", srv.Addr)
-	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+	log.Info("server started", "addr", server.Addr)
+	if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		log.Error("server failder", "err", err)
 		os.Exit(1)
 	}

@@ -10,21 +10,24 @@ import (
 	"strings"
 
 	"github.com/drollltedUp/time-managment/internal/auth"
+	"github.com/drollltedUp/time-managment/internal/shifts"
 	"github.com/drollltedUp/time-managment/internal/user"
 	"github.com/gorilla/mux"
 )
 
 type ServerHTTP struct {
-	authSVC *user.Service
-	tokens  *auth.TokenManager
-	slog    *slog.Logger
+	authSVC   *user.Service
+	shiftsSVC *shifts.Service
+	tokens    *auth.TokenManager
+	slog      *slog.Logger
 }
 
-func NewServerHTTP(auth *user.Service, tokens *auth.TokenManager, slog *slog.Logger) *ServerHTTP {
+func NewServerHTTP(auth *user.Service, shifts *shifts.Service, tokens *auth.TokenManager, slog *slog.Logger) *ServerHTTP {
 	return &ServerHTTP{
-		authSVC: auth,
-		tokens:  tokens,
-		slog:    slog,
+		authSVC:   auth,
+		shiftsSVC: shifts,
+		tokens:    tokens,
+		slog:      slog,
 	}
 }
 
@@ -36,6 +39,16 @@ func (s *ServerHTTP) router() http.Handler {
 	protected := router.PathPrefix("/").Subrouter()
 	protected.Use(s.authMiddleware)
 	protected.Path("/me").Methods("GET").HandlerFunc(s.Me)
+	protected.Path("/me/shifts").Methods("GET").HandlerFunc(s.HandlerMyShifts)
+	protected.Path("/stores/{id}/shifts").Methods("GET").HandlerFunc(s.HandlerShiftsStore)
+
+	admin := router.PathPrefix("/").Subrouter()
+	admin.Use(s.authMiddleware)
+	admin.Use(s.requireRole("manager"))
+	admin.Path("/shifts").Methods("POST").HandlerFunc(s.HandlerShiftCreate)
+	admin.Path("/shifts/{id}").Methods("GET").HandlerFunc(s.HandlerShiftGetID)
+	admin.Path("/shifts/{id}").Methods("PUT").HandlerFunc(s.HandlerShiftUpdate)
+	admin.Path("/shifts/{id}").Methods("DELETE").HandlerFunc(s.HandlerShiftDelete)
 
 	return router
 }
@@ -144,4 +157,21 @@ func (s *ServerHTTP) authMiddleware(next http.Handler) http.Handler {
 		ctx = context.WithValue(ctx, ctxKeyRole{}, string(claims.Role))
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+func (s *ServerHTTP) requireRole(roles ...string) mux.MiddlewareFunc {
+	allowed := make(map[string]struct{}, len(roles))
+	for _, r := range roles {
+		allowed[r] = struct{}{}
+	}
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			role, _ := r.Context().Value(ctxKeyRole{}).(string)
+			if _, ok := allowed[role]; !ok {
+				errorJSON(w, http.StatusForbidden, "forbidden")
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
 }

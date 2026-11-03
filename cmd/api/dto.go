@@ -35,6 +35,15 @@ type errorDTO struct {
 	Time    time.Time `json:"time"`
 }
 
+// Struct For Shifts
+
+type createShiftRequest struct {
+	UserID   int64     `json:"user_id"`
+	StoreID  int64     `json:"store_id"`
+	StartsAt time.Time `json:"starts_at"`
+	EndsAt   time.Time `json:"ends_at"`
+}
+
 // Functions
 
 func writeJSON(w http.ResponseWriter, statusCode int, v any) {

@@ -10,6 +10,7 @@ import (
 
 	"github.com/drollltedUp/time-managment/internal/auth"
 	"github.com/drollltedUp/time-managment/internal/postgres"
+	"github.com/drollltedUp/time-managment/internal/shifts"
 	"github.com/drollltedUp/time-managment/internal/user"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -36,9 +37,10 @@ func main() {
 	}
 	defer pool.Close()
 
-	srv := user.NewService(postgres.NewUserStore(pool))
+	usersrv := user.NewService(postgres.NewUserStore(pool))
+	shiftssrv := shifts.NewService(postgres.NewShiftStore(pool))
 	tokens := auth.NewTokenManager([]byte(secret), time.Hour)
-	handler := NewServerHTTP(srv, tokens, log).router()
+	handler := NewServerHTTP(usersrv, shiftssrv, tokens, log).router()
 
 	server := &http.Server{
 		Addr:              ":9099",

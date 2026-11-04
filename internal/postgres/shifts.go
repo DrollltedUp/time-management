@@ -7,7 +7,6 @@ import (
 
 	"github.com/drollltedUp/time-managment/internal/shifts"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -169,17 +168,4 @@ func (s *ShiftStore) IsUserAssigned(ctx context.Context, userID, storeID int64) 
 	var exists bool
 	err := s.pool.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM user_stores WHERE user_id = $1 AND store_id = $2)`, userID, storeID).Scan(&exists)
 	return exists, err
-}
-
-func mapShiftError(err error) error {
-	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) {
-		switch pgErr.Code {
-		case codeExclusionViolation:
-			return shifts.ErrOverlap
-		case codeForeighKeyViolation:
-			return shifts.ErrUserOrStoreNotFount
-		}
-	}
-	return err
 }

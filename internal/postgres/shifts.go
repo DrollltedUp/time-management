@@ -10,10 +10,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-const (
-	codeForeighKeyViolation = "23503"
-	codeExclusionViolation  = "23P01"
-)
+// const (
+// 	codeForeighKeyViolation = "23503"
+// 	codeExclusionViolation  = "23P01"
+// )
 
 type ShiftStore struct {
 	pool *pgxpool.Pool
